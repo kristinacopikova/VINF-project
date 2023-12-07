@@ -5,7 +5,7 @@ from java.nio.file import Paths
 from org.apache.lucene import util
 from org.apache.lucene.analysis.standard import StandardAnalyzer
 from org.apache.lucene.document import Document, Field, FieldType, TextField
-from org.apache.lucene.index import (IndexOptions, IndexWriter, 
+from org.apache.lucene.index import (IndexOptions, IndexWriter,
                                      IndexWriterConfig, DirectoryReader)
 from org.apache.lucene.store import MMapDirectory
 from org.apache.lucene.search import IndexSearcher, TermQuery
@@ -16,10 +16,13 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 import pandas as pd
 
+
 def save_page(url, content, save_dir):
-    file_name = os.path.join(save_dir, f'{"".join(url.split("/")).replace(".","").replace(":","")}.html')
+    file_name = os.path.join(save_dir, f'{"".join(url.split("/")).replace(".", "").replace(":", "")}.html')
     with open(file_name, 'w', encoding='utf-8') as f:
         f.write(content)
+
+
 def get_pages(service, save_dir):
     urls_to_crawl = []
     url = "https://a-z-animals.com/animals"
@@ -36,7 +39,7 @@ def get_pages(service, save_dir):
         for match in matches:
             animal_name = match.group(1)
             new = f"https://a-z-animals.com/animals/{animal_name.lower()}/"
-            urls_to_crawl.append(new+"\n")
+            urls_to_crawl.append(new + "\n")
     with open("all_pages.txt", 'w', encoding='utf-8') as f:
         f.writelines(urls_to_crawl)
 
@@ -88,7 +91,7 @@ def download_pages():
 def parse():
     files = os.listdir("./saved_pages")
     field_patterns = {
-        "Animal Name":  r'<h1[^>]*>(.*?)<\/h1>',
+        "Animal Name": r'<h1[^>]*>(.*?)<\/h1>',
         "Kingdom": r'<dt[^>]*><a[^>]*>Kingdom</a></dt><dd[^>]*>(.*?)</dd>',
         "Phylum": r'<dt[^>]*><a[^>]*>Phylum</a></dt><dd[^>]*>(.*?)</dd>',
         "Class": r'<dt[^>]*><a[^>]*>Class</a></dt><dd[^>]*>(.*?)</dd>',
@@ -163,14 +166,14 @@ def index():
         for column_name in csv_data.columns:
             field_value = str(row[column_name])
             field = Field(
-                column_name, 
-                field_value, 
+                column_name,
+                field_value,
                 field_settings
             )
             doc.add(field)
 
         writer.addDocument(doc)
-    print(f"{writer.numRamDocs()} docs found in index")    
+    print(f"{writer.numRamDocs()} docs found in index")
 
     writer.commit()
     writer.close()
@@ -192,18 +195,18 @@ def search():
 
     while True:
 
-        field_name = input("""\nDo You want a funfact  for your animals? press 'f', 
-            Do you want a all info about them? press 'a' 
-            Do you want only Animal Name? press 'n'
-            If you want to end press 'k'\n""")
+        field_name = input("\nDo You want a funfact  for your animals? press 'f'"
+                           "\nDo you want all info about them? press 'a'"
+                           "\nDo you want only Animal Name? press 'n'"
+                           "\nIf you want to end press 'k'\n")
 
         # Break the loop when input is k
         if field_name == 'k':
             break
 
-        input_query = input("""\nWrite Query where the field name and searched value
-            will be defined in following way field_name:search_value, 
-            between the fields logical operators AND OR can be used.\n""")
+        input_query = input("\nWrite Query where the field name and searched value"
+                            "\nwill be defined in following way field_name:search_value,"
+                            "\nbetween the fields logical operators AND OR can be used.\n")
         query = MultiFieldQueryParser.parse(parser, input_query)
 
         hits = isearcher.search(query, 1000).scoreDocs
@@ -220,13 +223,12 @@ def search():
         # Iterate through matches
         for hit in hits:
             hitDoc = isearcher.doc(hit.doc)
-            cols = []
-            vals = []
 
             if field_name == 'f':
                 print(f" {hitDoc['Animal_Name']} has a known fun fact: {hitDoc['Fun_Fact']}")
             elif field_name == 'a':
-                print(f"{[dict({field_name.name(): hitDoc.get(field_name.name())}) for field_name in hitDoc.getFields()]}")
+                print(
+                    f"{[dict({field_name.name(): hitDoc.get(field_name.name())}) for field_name in hitDoc.getFields()]}")
             elif field_name == 'n':
                 print(f"Animal Name is {hitDoc['Animal_Name']}")
 
@@ -235,12 +237,12 @@ def search():
 
 
 if __name__ == '__main__':
-    input = input("""If you want to start Crawler press c
-    If you want to start indexer press i 
-    If you want to start search machine press s""")
-    if input == 'c':
+    input_action = input("If you want to start crawler press c\n"
+                         "If you want to start indexer press i\n"
+                         "If you want to start search machine press s")
+    if input_action == 'c':
         download_pages()
-    elif input == 'i':
+    elif input_action == 'i':
         index()
-    elif input == 's':
+    elif input_action == 's':
         search()
