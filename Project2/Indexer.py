@@ -10,13 +10,14 @@ from org.apache.lucene.search import IndexSearcher
 from org.apache.lucene.queryparser.classic import MultiFieldQueryParser
 import pandas as pd
 
-
+# function used by pylucene to create index for the parsed dataset
 def index():
     env = lucene.initVM(vmargs=['-Djava.awt.headless=true'])
     fsDir = MMapDirectory(Paths.get('Project2/index'))
     writerConfig = IndexWriterConfig(StandardAnalyzer())
     writer = IndexWriter(fsDir, writerConfig)
 
+    # Set field type to set index options for all fields unanimously
     field_settings = FieldType()
     field_settings.setStored(True)
     field_settings.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
@@ -30,11 +31,13 @@ def index():
 
         # Add fields based on the column names from the CSV
         for column_name in csv_data.columns:
+
+            # we are skipping index column from csv
             if 'Unnamed' in column_name:
                 continue
             field_value = str(row[column_name])
             field = Field(
-                column_name.replace(" ", "_"),
+                column_name.replace(" ", "_"), # to make search easier we are replacing any space in field name
                 field_value,
                 field_settings
             )
@@ -47,6 +50,7 @@ def index():
     writer.close()
 
 
+# based on the search result we return info about no results found or return desired output based on user input
 def search_output(isearcher, field_name, input_query, hits):
     output = ""
     if len(hits) > 0:
@@ -74,7 +78,7 @@ def search_output(isearcher, field_name, input_query, hits):
 
 def search_machine(isearcher, parser):
     while True:
-
+        # based on the users selection of desired output we will continue the functionality
         field_name = input("\nDo You want a funfact  for your animals? press 'f'"
                            "\nDo you want all info about them? press 'a'"
                            "\nDo you want only Animal Name? press 'n'"
@@ -82,7 +86,7 @@ def search_machine(isearcher, parser):
         # Break the loop when input is k
         if field_name == 'k':
             break
-
+        # query output is using pylucine search engine rules
         input_query = input("\nWrite Query where the field name and searched value"
                             "\nwill be defined in following way field_name:search_value,"
                             "\nbetween the fields logical operators AND OR can be used.\n")
@@ -90,10 +94,12 @@ def search_machine(isearcher, parser):
 
         hits = isearcher.search(query, 1000).scoreDocs
 
+        # search_output function returns built-in output based on user selection and searcher output
         output = search_output(isearcher, field_name, input_query, hits)
         print(output)
 
 
+# function unifies unit tests based on the query and expected fields in output
 def ut(input_query, field_name, isearcher, parser):
     query = MultiFieldQueryParser.parse(parser, input_query)
     hits = isearcher.search(query, 1000).scoreDocs
@@ -119,7 +125,7 @@ def search_unit_tests(isearcher, parser):
                      "\n[{'Source_File': 'httpsa-z-animalscomanimalsaardvark.html'}, {'Animal_Name': 'Aardvark'}, {'Kingdom': 'Animalia'}, {'Phylum': 'Chordata'}, {'Class': 'Mammalia'}, {'Order': 'Tubulidentata'}, {'Family': 'Orycteropodidae'}, {'Genus': 'Orycteropus'}, {'Scientific_Name': 'Orycteropus afer'}, {'Prey': 'Termites, Ants'}, {'Name_Of_Young': 'Cub'}, {'Group_Behavior': 'Solitary'}, {'Fun_Fact': 'Can move up to 2ft of soil in just 15 seconds!'}, {'Estimated_Population_Size': 'Unknown'}, {'Biggest_Threat': 'Habitat loss'}, {'Most_Distinctive_Feature': 'Long, sticky tongue and rabbit-like ears'}, {'Other_Name(s)': 'Antbear, Earth Pig'}, {'Gestation_Period': '7 months'}, {'Habitat': 'Sandy and clay soil'}, {'Diet': 'Omnivore'}, {'Litter_Size': '1'}, {'Lifestyle': 'Nocturnal'}, {'Common_Name': 'Aardvark'}, {'Number_Of_Species': '18.0'}, {'Location': 'Sub-Saharan Africa'}, {'Slogan': 'Can move 2ft of soil in just 15 seconds!'}, {'Group': 'Mammal'}, {'Skin_Type': 'Hair'}, {'Top_Speed': '25 mph'}, {'Lifespan': '23 years'}, {'Weight': '60kg - 80kg (130lbs - 180lbs)'}, {'Length': '1.05m - 2.20m (3.4ft - 7.3ft)'}, {'Age_of_Sexual_Maturity': '2 years'}, {'Age_of_Weaning': '3 months'}, {'Temperament': 'nan'}, {'Training': 'nan'}, {'title': 'Aardvark'}, {'genus': 'orycteropus'}, {'species': 'afer'}, {'name': 'nan'}]"
     print("UT3 passed")
 
-    # unit_test4 - Funfact for Animal Aardvark - existing one record
+    # unit_test4 - Wikipedia name for Animals in search with 2 options - existing multiple record
     output = ut("Name_Of_Young:Calf AND Skin_Type=Hair", "n", isearcher, parser)
     assert output == '\nFound 12 matches. Animal name for your query Name_Of_Young:Calf AND Skin_Type=Hair are:' \
                      '\nAnimal Name is Addax' \
@@ -137,6 +143,7 @@ def search_unit_tests(isearcher, parser):
     print("UT4 passed")
 
 
+# Function enables search in created index with built-in selection and pylucine search queries
 def search(action):
     env = lucene.initVM(vmargs=['-Djava.awt.headless=true'])
     fsDir = MMapDirectory(Paths.get('Project2/index'))
@@ -151,6 +158,7 @@ def search(action):
               'title', 'genus', 'species', 'name']
     parser = MultiFieldQueryParser(fields, lucene_analyzer)
 
+    # based on suer input in main function we run unit tests or we enable search machine
     if action == 's':
         search_machine(isearcher, parser)
     elif action == 'u':
@@ -159,7 +167,7 @@ def search(action):
     ireader.close()
     fsDir.close()
 
-
+# the code offers 3 options of run indexer/search engine/ unit tests
 input_action = input("If you want to start indexer press i\n"
                      "If you want to start search machine press s\n"
                      "If you want to run unit tests for search machine press u\n")

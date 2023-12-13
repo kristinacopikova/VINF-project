@@ -17,15 +17,17 @@ from selenium.webdriver.chrome.service import Service
 import pandas as pd
 
 
+# Function is used to save content into the designated folder
 def save_page(url, content, save_dir):
     file_name = os.path.join(save_dir, f'{"".join(url.split("/")).replace(".", "").replace(":", "")}.html')
     with open(file_name, 'w', encoding='utf-8') as f:
         f.write(content)
 
 
+# Function is used to get pages for all animals that are going to be saved into the file for further processing
 def get_pages(service, save_dir):
     urls_to_crawl = []
-    url = "https://a-z-animals.com/animals"
+    url = "https://a-z-animals.com/animals"  # Root url that we start the crawling with
     with webdriver.Chrome(service=service) as driver:
         driver.get(url)
         time.sleep(5)
@@ -44,6 +46,7 @@ def get_pages(service, save_dir):
         f.writelines(urls_to_crawl)
 
 
+#  Function used to open new page within the selenium window and saves the content to the file
 def extract_and_save_urls(url, driver, save_d):
     driver.get(url)
     time.sleep(5)
@@ -51,45 +54,46 @@ def extract_and_save_urls(url, driver, save_d):
     save_page(url, page_src, save_d)
 
 
+# Function that handles whole download process
 def download_pages():
     # Create a directory to save the raw HTML files
     save_dir = 'saved_pages'
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    # List to keep track of saved page URLs
-    saved_pages = []
-
     ser = Service("chromedriver/chromedriver.exe")
     get_pages(ser, save_dir)
 
+    # files with all the pages that will be crawled
     file = open("all_pages.txt", "r", encoding="utf8")
     urls = file.readlines()
     file.close()
 
-    crawled_file = open("all_pages.txt", "r", encoding="utf8")
+    # file crawled_pages is having all already saved pages
+    crawled_file = open("crawled_pages.txt", "r", encoding="utf8")
     crawled_urls = crawled_file.readlines()
     crawled_file.close()
+
+    # file is used to save the pages that were  already processed and saved
+    file = open("crawled_pages.txt", "a", encoding="utf8")
 
     while urls:
         ser = Service("chromedriver/chromedriver.exe")
         with webdriver.Chrome(service=ser) as d:
             url_to_crawl = urls.pop(0).split("\n")[0]
-            if url_to_crawl in crawled_urls:
-                continue
-            extract_and_save_urls(url_to_crawl, d, save_dir)
-            saved_pages.append(url_to_crawl)
 
-    print("Saved Pages:")
-    for page in saved_pages:
-        print(page)
-    file = open("crawled_pages.txt", "a", encoding="utf8")
-    urls = file.writelines(saved_pages)
+            if url_to_crawl in crawled_urls:  # if url was already downloaded skip it
+                continue
+
+            extract_and_save_urls(url_to_crawl, d, save_dir)
+            file.writelines([url_to_crawl])
     file.close()
 
 
+# Function extracts data from raw pages and creates dataset in csv
 def parse():
     files = os.listdir("./saved_pages")
+    # mapping of regex to the field name in dataset
     field_patterns = {
         "Animal Name": r'<h1[^>]*>(.*?)<\/h1>',
         "Kingdom": r'<dt[^>]*><a[^>]*>Kingdom</a></dt><dd[^>]*>(.*?)</dd>',
@@ -126,9 +130,10 @@ def parse():
         "Length": r'a[^>]*>Length</a></dt><dd[^>]*>(.*?)</dd>',
         "Age of Sexual Maturity": r'a[^>]*>Age of Sexual Maturity</a></dt><dd[^>]*>(.*?)</dd>',
         "Age of Weaning": r'a[^>]*>Age of Weaning</a></dt><dd[^>]*>(.*?)</dd>',
-        # "Classification": r'<h2[^>]*>Classification</h2><p>(.*?)</p>',
     }
+
     df = pd.DataFrame(columns=list(field_patterns.keys()).append("Source File"))
+    # files are processed one by one and we loop through field pattern dictionary to extract the values
     for file in files:
         page = open(f"./saved_pages/{file}", "r", encoding='utf-8').read()
         d = {}
@@ -145,12 +150,16 @@ def parse():
     df.to_csv("parsed.csv")
 
 
+# function used by pylucene to create index for the parsed dataset
 def index():
     env = lucene.initVM(vmargs=['-Djava.awt.headless=true'])
     fsDir = MMapDirectory(Paths.get('Project1/index'))
     writerConfig = IndexWriterConfig(StandardAnalyzer())
     writer = IndexWriter(fsDir, writerConfig)
+
     print(f"{writer.numRamDocs()} docs found in index")
+
+    # Set field type to set index options for all fields unanimously
     field_settings = FieldType()
     field_settings.setStored(True)
     field_settings.setIndexOptions(IndexOptions.DOCS_AND_FREQS_AND_POSITIONS)
@@ -179,6 +188,7 @@ def index():
     writer.close()
 
 
+# Function enables search in created index with built-in selection and pylucine search queries
 def search():
     env = lucene.initVM(vmargs=['-Djava.awt.headless=true'])
     fsDir = MMapDirectory(Paths.get('Project1/index'))
@@ -194,7 +204,7 @@ def search():
     parser = MultiFieldQueryParser(fields, lucene_analyzer)
 
     while True:
-
+        # based on the users selection of desired output we will continue the functionality
         field_name = input("\nDo You want a funfact  for your animals? press 'f'"
                            "\nDo you want all info about them? press 'a'"
                            "\nDo you want only Animal Name? press 'n'"
@@ -203,13 +213,14 @@ def search():
         # Break the loop when input is k
         if field_name == 'k':
             break
-
+        # query output is using pylucine search engine rules
         input_query = input("\nWrite Query where the field name and searched value"
                             "\nwill be defined in following way field_name:search_value,"
                             "\nbetween the fields logical operators AND OR can be used.\n")
         query = MultiFieldQueryParser.parse(parser, input_query)
 
         hits = isearcher.search(query, 1000).scoreDocs
+        # based on the search result we notify of no results found or return desired output based on user input
         if len(hits) > 0:
             if field_name == 'f':
                 print(f"\nFound {len(hits)} matches. Funfact for animals matching your query {input_query} are:")
@@ -220,7 +231,7 @@ def search():
         else:
             print(f"\nNo matches were found for for your query {input_query}")
 
-        # Iterate through matches
+        # Iterate through matches and return desired output
         for hit in hits:
             hitDoc = isearcher.doc(hit.doc)
 
@@ -237,6 +248,7 @@ def search():
 
 
 if __name__ == '__main__':
+    # the code offers 3 options of run, crawler/indexer/search engine
     input_action = input("If you want to start crawler press c\n"
                          "If you want to start indexer press i\n"
                          "If you want to start search machine press s")
